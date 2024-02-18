@@ -1,6 +1,5 @@
 # Feyenoord News Dashboard
 
-To run this project, run the following and go to http://localhost:3000
 ![Dashboard](docs/assets/dashboard-screenshot.png)
 
 ## Run Locally
@@ -27,6 +26,12 @@ Start container on port 3000
 
 ```bash
   docker run -p 80:3000 -e WEATHER_API_KEY=your_api_key_ --name fnd -d feyenoord-news-display
+```
+
+Go to the webUI
+
+```bash
+  http://localhost
 ```
 
 ## Environment Variables
