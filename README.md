@@ -7,13 +7,13 @@
 Clone the project
 
 ```bash
-  git clone https://github.com/owen282000/feyenoord_news_dashboard.git
+  git clone https://github.com/owen282000/Feyenoord-News-Dashboard.git
 ```
 
 Go to the project directory
 
 ```bash
-  cd feyenoord_news_dashboard
+  cd Feyenoord-News-Dashboard
 ```
 
 Create container
@@ -22,7 +22,7 @@ Create container
   docker build -t feyenoord-news-display .
 ```
 
-Start container on port 3000
+Start container on port 80
 
 ```bash
   docker run -p 80:3000 -e WEATHER_API_KEY=your_api_key_ --name fnd -d feyenoord-news-display
