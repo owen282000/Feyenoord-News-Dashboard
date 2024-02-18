@@ -1,6 +1,8 @@
 # Feyenoord News Dashboard
 
 To run this project, run the following and go to http://localhost:3000
+![Dashboard](docs/assets/dashboard-screenshot.png)
+
 ## Run Locally
 
 Clone the project
@@ -27,8 +29,15 @@ Start container on port 3000
   docker run -p 80:3000 -e WEATHER_API_KEY=your_api_key_ --name fnd -d feyenoord-news-display
 ```
 
-Required is tbe WEATHER_API_KEY which you can retrieve from https://www.weatherapi.com/
-Optional is the PORT which you can use to set another listening port withing the container (if changed, change the port in the docker command and Dockerfile accordingly) - default 3000
+## Environment Variables
+
+To run this project, you can set the following environment variables in Docker: 
+
+`WEATHER_API_KEY` - `required` - retrieve from https://www.weatherapi.com/
+
+`PORT` - `optional` - `default` `3000` - set another listening port withing the container 
+\
+(if changed, change the port in the docker command and Dockerfile accordingly)
 
 ## Accessable Links
 
