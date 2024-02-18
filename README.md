@@ -1,6 +1,6 @@
 # Feyenoord News Dashboard
 
-![Dashboard](docs/assets/dashboard-screenshot.png)
+![Dashboard](docs/assets/screenshot-dashboard.png)
 
 ## Run Locally
 
