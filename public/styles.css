@@ -112,10 +112,12 @@ p {
 
 #news-title {
   font-size: 500%;
+  text-align: justify;
 }
 
 #news-description {
   font-size: 275%;
+  text-align: justify;
 }
 
 /* Date and Weather */
