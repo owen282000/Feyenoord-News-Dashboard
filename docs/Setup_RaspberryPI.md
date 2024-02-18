@@ -50,26 +50,53 @@ This guide will help you set up the Feyenoord News Dashboard on a Raspberry Pi.
     # Define the repository location
     REPO_DIR=~/Feyenoord-News-Dashboard
 
+    # Function to get the current git revision hash
+    get_git_revision_hash() {
+        git rev-parse HEAD
+    }
+
     # Check if the repository directory already exists
     if [ -d "$REPO_DIR" ]; then
-        echo "Repository directory exists. Pulling latest changes..."
+        echo "Repository directory exists. Checking for updates..."
         cd "$REPO_DIR"
+        # Get the current git revision hash before pulling
+        OLD_HASH=$(get_git_revision_hash)
+        # Pull the latest changes
         git pull
+        # Get the new git revision hash after pulling
+        NEW_HASH=$(get_git_revision_hash)
     else
         echo "Repository directory does not exist. Cloning repository..."
         git clone https://github.com/owen282000/Feyenoord-News-Dashboard.git "$REPO_DIR"
         cd "$REPO_DIR"
+        # Assume the repository is new and needs building
+        OLD_HASH=""
+        NEW_HASH=$(get_git_revision_hash)
     fi
 
-    # Build the Docker image
-    docker build . -t feyenoord-news-display
+    # Check if the repository was updated
+    if [ "$OLD_HASH" != "$NEW_HASH" ]; then
+        echo "Repository was updated. Building Docker image..."
+        # Build the Docker image
+        docker build . -t feyenoord-news-display
+        # Stop and remove the existing container if it exists
+        docker stop fnd 2>/dev/null || true
+        docker rm fnd 2>/dev/null || true
+    else
+        echo "No updates found. Checking if container needs restarting..."
+        # Check if the container is running
+        if [ $(docker ps -q -f name=fnd) ]; then
+            echo "Container is already running."
+        else
+            echo "Container is not running. Starting container..."
+            # Stop and remove the existing container if it exists
+            docker stop fnd 2>/dev/null || true
+            docker rm fnd 2>/dev/null || true
+        fi
+    fi
 
-    # Stop and remove the existing container if it exists
-    docker stop fnd 2>/dev/null || true
-    docker rm fnd 2>/dev/null || true
-
-    # Run the Docker container
-    docker run -p 80:3000 --name fnd -e WEATHER_API_KEY=****************** -d feyenoord-news-display:latest
+    # Always ensure the Docker container is running with the latest image
+    docker run -p 80:3000 --name fnd -e WEATHER_API_KEY=****************** -d feyenoord-news-display:latest 
     ```
 
     The `start_dashboard.sh` script will start the container and launch Chromium in kiosk mode to display the dashboard:
@@ -77,8 +104,15 @@ This guide will help you set up the Feyenoord News Dashboard on a Raspberry Pi.
     ```bash
     #!/bin/bash
 
+    # Update and install unclutter if it's not already installed
+    if ! command -v unclutter &> /dev/null
+    then
+        echo "unclutter could not be found, installing..."
+        sudo apt-get update && sudo apt-get install -y unclutter
+    fi
+
     # Pull project and start container
-    /home/$(whoami)/pull_project.sh
+    /home/owen282000/pull_project.sh
 
     # Wait for the Docker container to be fully up and running
     until $(curl --output /dev/null --silent --head --fail http://localhost:80); do
@@ -86,8 +120,11 @@ This guide will help you set up the Feyenoord News Dashboard on a Raspberry Pi.
         sleep 5
     done
 
+    # Start unclutter to hide the mouse cursor
+    unclutter -idle 0.1 -root -display :0 &
+
     # Now that the container is up, start Chromium in kiosk mode
-    /usr/bin/chromium-browser --noerrdialogs --kiosk http://localhost --disable-translate --no-first-run --fast --fast-start --disable-infobars --disable-features=TranslateUI &
+    /usr/bin/chromium-browser --noerrdialogs --kiosk http://localhost --disable-translate --no-first-run --fast --fast-start --disable-infobars --disable-features=TranslateUI --display=:0 &
     ```
 
 2. **Make Scripts Executable**
@@ -100,16 +137,16 @@ This guide will help you set up the Feyenoord News Dashboard on a Raspberry Pi.
 
 3. **Add to Cron**
 
-    To ensure these scripts run at boot, add them to your crontab:
+    To ensure these scripts run at boot, add them to your bash_profile:
 
     ```bash
-    crontab -e
+    vi ~/.bash_profile
     ```
 
     Add the following line to run the start script at reboot:
 
     ```
-    @reboot /bin/bash /home/$(whoami)/start_dashboard.sh
+    ~/start_dashboard.sh
     ```
 
 4. **Running the Dashboard**
