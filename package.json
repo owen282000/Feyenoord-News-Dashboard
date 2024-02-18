@@ -1,0 +1,17 @@
+{
+  "name": "feyenoord_news_dashboard",
+  "version": "1.0.0",
+  "description": "A Feyenoord News Dashboard that aggregates the latest club news and weather updates using Node.js. It fetches RSS feeds, processes article content, and presents real-time updates for fans, enhancing their experience with up-to-date information and insights.",
+  "main": "server.js",
+  "scripts": {
+      "start": "node server.js"
+  },
+  "dependencies": {
+      "cors": "^2.8.5",
+      "express": "^4.17.1",
+      "node-fetch": "^2.6.1",
+      "jsdom": "^16.6.0"
+  },
+  "author": "owen282000",
+  "license": "ISC"
+}
