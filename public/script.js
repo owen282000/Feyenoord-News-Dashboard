@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function isItemFromLastWeek(item) {
         const pubDate = new Date(item.querySelector("pubDate").textContent);
         const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        weekAgo.setDate(weekAgo.getDate() - 2); // Use news items from 2 days max
         return pubDate > weekAgo;
     }
 
