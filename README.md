@@ -2,6 +2,15 @@
 
 ![Dashboard](docs/assets/screenshot-dashboard.png)
 
+Real-time Feyenoord news dashboard with live match scores, Eredivisie standings, and news articles from FR12.
+
+## Features
+
+- Live match scores with 1-minute updates during games
+- Real-time Eredivisie standings (top 5 teams around Feyenoord)
+- Automatic news rotation from FR12
+- Weather information for Rotterdam
+
 ## Run Locally
 
 Clone the project
@@ -16,7 +25,7 @@ Go to the project directory
   cd Feyenoord-News-Dashboard
 ```
 
-Create container
+Build container
 
 ```bash
   docker build -t feyenoord-news-display .
@@ -28,7 +37,7 @@ Start container on port 80
   docker run -p 80:3000 -e WEATHER_API_KEY=your_api_key_ --name fnd -d feyenoord-news-display
 ```
 
-Go to the webUI
+View dashboard
 
 ```bash
   http://localhost
@@ -38,37 +47,47 @@ Go to the webUI
 
 To run this project, you can set the following environment variables in Docker: 
 
-`WEATHER_API_KEY` - `required` - retrieve from https://www.weatherapi.com/
+`WEATHER_API_KEY` - `optional` - retrieve from https://www.weatherapi.com/
 
-`PORT` - `optional` - `default` `3000` - set another listening port withing the container 
-\
-(if changed, change the port in the docker command and Dockerfile accordingly)
+Weather will show "Weer niet beschikbaar" if not provided
 
-## Accessable Links
+`PORT` - `optional` - `default` `3000` - listening port within container
 
-Main news board
+## API Endpoints
+
+Main dashboard
 
 ```bash
-  http://localhost:80
+  http://localhost/
 ```
-    
-FR12 RSS Feed Clone
+
+Match data (ESPN API)
 
 ```bash
-  http://localhost:80/rss
+  http://localhost/matches
 ```
-    
-FR12 Article Clone
+
+Standings data (ESPN API)
 
 ```bash
-  http://localhost:80/get-article-content?url=...
-  http://localhost:80/get-article-content?url=https://www.fr12.nl/nieuws/lukaku-sprak-met-karsdorp-feyenoord-speelt-heel-goed
+  http://localhost/standings
 ```
-    
-Weather Article Clone
+
+RSS feed
 
 ```bash
-  http://localhost:80/weather?city=...
-  http://localhost:80/weather?city=rotterdam
+  http://localhost/rss
+```
+
+Article content
+
+```bash
+  http://localhost/get-article-content?url=<article_url>
+```
+
+Weather
+
+```bash
+  http://localhost/weather?city=rotterdam
 ```
     
