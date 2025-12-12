@@ -47,19 +47,14 @@ p {
   width: 100%;
   padding: 1% 10px;
   position: fixed;
-  bottom: 0;
+  bottom: 8vh;
   left: 0;
   color: white;
-  text-align: center;
-  z-index: 10; 
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 5vh;
-  padding-left: 3vh;
-  padding-bottom: 4vh;
+  text-align: left;
+  z-index: 10;
   font-size: 3vh;
-  text-decoration: none;
+  padding-left: 3vh;
+  padding-bottom: 1vh;
   opacity: 0.3;
 }
 
@@ -77,6 +72,33 @@ p {
   background-color: rgba(255, 255, 255, 0.9);
   border-radius: 10px;
   overflow-y: auto;
+}
+
+/* Fade transitions for news content */
+.content-wrapper.fade-out {
+  animation: fadeOut 1s ease-in-out forwards;
+}
+
+.content-wrapper.fade-in {
+  animation: fadeIn 1s ease-in-out forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* News Image */
@@ -149,6 +171,245 @@ p {
   margin-right: 8px;
 }
 
+/* Bottom Ticker Bar */
+.sidebar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 8vh;
+  background: #E30613;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar h2 {
+  display: none;
+}
+
+/* Ticker Container */
+.ticker-container {
+  display: flex;
+  animation: scroll 40s linear infinite;
+  white-space: nowrap;
+  gap: 0;
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Match Info Styles */
+.match-info {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 60px;
+  color: white;
+  border-right: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.match-card {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 8px 16px;
+  margin: 0;
+  backdrop-filter: blur(10px);
+  gap: 12px;
+}
+
+.match-card.live {
+  background-color: rgba(255, 215, 0, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Live Indicator */
+.live-indicator {
+  background-color: #E30613;
+  color: white;
+  font-size: 1.4vh;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+  animation: livePulse 2s infinite;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@keyframes livePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+/* Match Status Badges */
+.match-status {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 1.4vh;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.match-status.postponed {
+  background-color: rgba(255, 165, 0, 0.3);
+  border: 1px solid rgba(255, 165, 0, 0.6);
+}
+
+.match-status.suspended {
+  background-color: rgba(255, 100, 0, 0.3);
+  border: 1px solid rgba(255, 100, 0, 0.6);
+}
+
+.match-status.canceled {
+  background-color: rgba(150, 150, 150, 0.3);
+  border: 1px solid rgba(150, 150, 150, 0.6);
+}
+
+.match-teams {
+  display: flex;
+  align-items: center;
+  font-size: 1.8vh;
+  font-weight: bold;
+  color: white;
+  gap: 10px;
+}
+
+.match-score {
+  font-size: 1.6vh;
+  color: white;
+  font-weight: bold;
+}
+
+.match-time {
+  font-size: 1.4vh;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.countdown {
+  display: none;
+}
+
+.recent-results {
+  display: none;
+}
+
+/* Standings Ticker Styles */
+.standings {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 60px;
+  color: white;
+  border-right: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.standings table {
+  display: inline-flex;
+  gap: 20px;
+  border-collapse: collapse;
+}
+
+.standings thead {
+  display: none;
+}
+
+.standings tbody {
+  display: inline-flex;
+  gap: 15px;
+}
+
+.standings tr {
+  display: inline-flex;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 6px 12px;
+  backdrop-filter: blur(10px);
+  gap: 8px;
+}
+
+.standings tr.feyenoord {
+  background-color: #B0A072;
+  font-weight: bold;
+  border: 2px solid #B0A072;
+  color: #000;
+}
+
+.standings tr.feyenoord .position,
+.standings tr.feyenoord .points {
+  color: #E30613;
+}
+
+.standings td {
+  display: inline-block;
+  padding: 0;
+  border: none;
+  color: white;
+  margin: 0 4px;
+}
+
+.standings .position {
+  font-size: 1.6vh;
+  font-weight: bold;
+  color: white;
+  min-width: 20px;
+}
+
+.standings .team-name {
+  font-size: 1.6vh;
+  font-weight: 600;
+}
+
+.standings .points {
+  font-size: 1.6vh;
+  font-weight: bold;
+  color: white;
+  margin-left: 4px;
+}
+
+.loading {
+  color: white;
+  font-size: 1.6vh;
+  padding: 8px 16px;
+  font-weight: 500;
+}
+
+.error-message {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-left: 3px solid #B0A072;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 5px;
+  font-size: 1.4vh;
+  display: inline-block;
+  margin: 0;
+}
+
 /* Responsive Design */
 @media screen and (max-width: 768px) {
   .content-wrapper {
@@ -160,5 +421,9 @@ p {
 
   .news-image {
     aspect-ratio: unset;
+  }
+
+  .sidebar {
+    display: none; /* Hide sidebar on mobile for now */
   }
 }

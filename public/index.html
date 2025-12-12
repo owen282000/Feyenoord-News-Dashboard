@@ -34,6 +34,45 @@
         </article>
     </main>
 
+    <!-- Bottom Ticker Bar -->
+    <aside class="sidebar">
+        <div class="ticker-container" id="ticker-container">
+            <!-- Match Information -->
+            <section class="match-info" id="match-info">
+                <h2>Wedstrijden</h2>
+                <div id="upcoming-match" class="match-card">
+                    <div class="loading">Wedstrijden laden...</div>
+                </div>
+                <div id="recent-results" class="recent-results">
+                    <!-- Recent results will be inserted here -->
+                </div>
+            </section>
+
+            <!-- Standings Table -->
+            <section class="standings" id="standings">
+                <h2>Eredivisie Stand</h2>
+                <div id="standings-table">
+                    <div class="loading">Stand laden...</div>
+                </div>
+            </section>
+
+            <!-- Duplicate content for seamless loop -->
+            <section class="match-info" id="match-info-duplicate">
+                <h2>Wedstrijden</h2>
+                <div id="upcoming-match-duplicate" class="match-card">
+                    <div class="loading">Wedstrijden laden...</div>
+                </div>
+            </section>
+
+            <section class="standings" id="standings-duplicate">
+                <h2>Eredivisie Stand</h2>
+                <div id="standings-table-duplicate">
+                    <div class="loading">Stand laden...</div>
+                </div>
+            </section>
+        </div>
+    </aside>
+
     <!-- Footer -->
     <footer class="footer">
         <p>github.com/owen282000</p>
