@@ -1,7 +1,5 @@
 // Import necessary modules
 const express = require('express');
-const fetch = require('node-fetch');
-const { JSDOM } = require('jsdom');
 const cheerio = require('cheerio');
 const cors = require('cors');
 
@@ -15,16 +13,34 @@ const PORT = process.env.PORT || 3000;
 const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/ned.1';
 const FEYENOORD_ESPN_ID = 142; // Feyenoord Rotterdam ESPN team ID
 
+// Only these hosts may be fetched by /get-article-content
+const ALLOWED_ARTICLE_HOSTS = new Set(['www.fr12.nl', 'fr12.nl']);
+
+function isAllowedArticleUrl(url) {
+  return url.protocol === 'https:' && ALLOWED_ARTICLE_HOSTS.has(url.hostname);
+}
+
 // In-memory cache for news articles and football data
-let newsCache = [];
+let newsCache = null;
 let standingsCache = null;
 let matchesCache = null;
+let weatherCache = {};
 let cacheTimestamp = {
   news: null,
   standings: null,
   matches: null
 };
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION_LIVE_MATCH = 30 * 1000; // 30 seconds for live matches
+const CACHE_DURATION_NEAR_KICKOFF = 60 * 1000; // 1 minute around kickoff
+const WEATHER_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+const WEATHER_CACHE_MAX_CITIES = 20; // Bound memory: the kiosk only ever asks for one city
+
+// Article text cache, so the preload actually warms the real request
+// and each article hits fr12.nl only once
+const articleCache = new Map();
+const ARTICLE_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+const ARTICLE_CACHE_MAX_ENTRIES = 50;
 
 // Middleware
 app.use(cors()); // Enable CORS
@@ -38,9 +54,9 @@ app.get('/rss', async (req, res) => {
   const isCacheValid = cacheTimestamp.news &&
     (Date.now() - cacheTimestamp.news < CACHE_DURATION);
 
-  if (isCacheValid && newsCache.length > 0) {
+  if (isCacheValid && newsCache) {
     console.log('Serving RSS from cache');
-    return res.send(newsCache);
+    return res.type('application/xml').send(newsCache);
   }
 
   try {
@@ -54,14 +70,14 @@ app.get('/rss', async (req, res) => {
     newsCache = data;
     cacheTimestamp.news = Date.now();
 
-    res.send(data);
+    res.type('application/xml').send(data);
   } catch (error) {
     console.error('Error fetching RSS feed:', error);
 
     // Return cached data if available, even if expired
-    if (newsCache.length > 0) {
+    if (newsCache) {
       console.log('Serving stale cache due to error');
-      return res.send(newsCache);
+      return res.type('application/xml').send(newsCache);
     }
 
     res.status(500).json({
@@ -76,15 +92,57 @@ app.get('/rss', async (req, res) => {
 app.get('/weather', async (req, res) => {
   const city = req.query.city;
   const apiKey = process.env.WEATHER_API_KEY;
-  const weatherApiUrl = `http://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${encodeURIComponent(city)}&aqi=no`;
+
+  if (!city) {
+    return res.status(400).json({ error: 'Missing city parameter' });
+  }
+
+  if (!apiKey) {
+    console.error('WEATHER_API_KEY is not configured');
+    return res.status(503).json({
+      error: 'Weather service not configured',
+      message: 'Weer niet beschikbaar'
+    });
+  }
+
+  // Serve from cache when still fresh
+  const cached = weatherCache[city];
+  if (cached && Date.now() - cached.timestamp < WEATHER_CACHE_DURATION) {
+    console.log(`Serving weather for ${city} from cache`);
+    return res.json(cached.data);
+  }
+
+  const weatherApiUrl = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${encodeURIComponent(city)}&aqi=no`;
 
   try {
     const response = await fetch(weatherApiUrl);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const data = await response.json();
+
+    // Bound the cache so unknown city values can't grow memory indefinitely
+    if (!weatherCache[city] && Object.keys(weatherCache).length >= WEATHER_CACHE_MAX_CITIES) {
+      weatherCache = {};
+    }
+    weatherCache[city] = { data: data, timestamp: Date.now() };
+
     res.json(data);
   } catch (error) {
     console.error('Error fetching weather data:', error);
-    res.status(500).send('Error fetching weather data');
+
+    // Return cached data if available, even if expired
+    if (cached) {
+      console.log('Serving stale weather cache due to error');
+      return res.json(cached.data);
+    }
+
+    res.status(500).json({
+      error: 'Error fetching weather data',
+      message: 'Weer niet beschikbaar'
+    });
   }
 });
 
@@ -92,21 +150,61 @@ app.get('/weather', async (req, res) => {
 app.get('/get-article-content', async (req, res) => {
   const articleUrl = req.query.url;
 
+  // Only allow fetching articles from the known news source (prevents SSRF)
+  let parsedUrl;
   try {
-    const response = await fetch(articleUrl);
-    const html = await response.text();
-    const dom = new JSDOM(html);
-    const content = dom.window.document.querySelector('#article-content');
+    parsedUrl = new URL(articleUrl);
+  } catch (error) {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
 
-    if (content) {
-      const firstParagraph = content.querySelector('p') ? `<p>${content.querySelector('p').innerHTML}</p>` : '';
-      res.json({ content: firstParagraph });
-    } else {
-      res.status(404).send('Article content not found');
+  if (!isAllowedArticleUrl(parsedUrl)) {
+    console.warn(`Blocked article fetch for disallowed URL: ${articleUrl}`);
+    return res.status(403).json({ error: 'URL not allowed' });
+  }
+
+  // Serve from cache: the client preloads each article before displaying it,
+  // so without this every article would hit fr12.nl twice
+  const cachedArticle = articleCache.get(parsedUrl.href);
+  if (cachedArticle && Date.now() - cachedArticle.timestamp < ARTICLE_CACHE_DURATION) {
+    return res.json({ text: cachedArticle.text });
+  }
+
+  try {
+    const response = await fetch(parsedUrl.href);
+
+    // Re-check after redirects, so a redirect can't escape the allowlist
+    if (!isAllowedArticleUrl(new URL(response.url))) {
+      console.warn(`Blocked article fetch: redirected to disallowed URL ${response.url}`);
+      return res.status(403).json({ error: 'URL not allowed' });
     }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const firstParagraph = $('#article-content p').first();
+
+    // Return plain text only: the client renders this as textContent, so no
+    // markup from the external site can reach the page
+    const text = firstParagraph.text().replace(/\s+/g, ' ').trim();
+
+    if (!text) {
+      return res.status(404).json({ error: 'Article content not found' });
+    }
+
+    if (articleCache.size >= ARTICLE_CACHE_MAX_ENTRIES) {
+      // Drop the oldest entry (Map preserves insertion order)
+      articleCache.delete(articleCache.keys().next().value);
+    }
+    articleCache.set(parsedUrl.href, { text: text, timestamp: Date.now() });
+
+    res.json({ text: text });
   } catch (error) {
     console.error('Error fetching article content:', error);
-    res.status(500).send('Error fetching article');
+    res.status(500).json({ error: 'Error fetching article' });
   }
 });
 
@@ -217,17 +315,35 @@ app.get('/standings', async (req, res) => {
 
 // Route to fetch next Feyenoord match from ESPN API
 app.get('/matches', async (req, res) => {
-  // Check cache validity - use shorter cache during potential match times
-  const now = new Date();
-  const hour = now.getHours();
-  const isMatchDay = hour >= 12 && hour <= 23; // Matches typically between 12:00-23:00
-  const cacheDuration = isMatchDay ? 60000 : CACHE_DURATION; // 1 min during match hours, 5 min otherwise
+  // Check if there's a live match in cache to determine cache duration
+  let cacheDuration = CACHE_DURATION; // Default 5 minutes
+
+  if (matchesCache && matchesCache.match) {
+    const status = matchesCache.match.status;
+    const hasLiveMatch = status === 'STATUS_IN_PROGRESS' ||
+      status === 'STATUS_FIRST_HALF' ||
+      status === 'STATUS_SECOND_HALF' ||
+      status === 'STATUS_HALFTIME';
+
+    if (hasLiveMatch) {
+      cacheDuration = CACHE_DURATION_LIVE_MATCH; // 30 seconds during live match
+    } else {
+      // Poll more often around kickoff so the switch to a live score is quick
+      const kickoff = new Date(matchesCache.match.date);
+      const minutesToKickoff = isNaN(kickoff.getTime())
+        ? Infinity
+        : (kickoff.getTime() - Date.now()) / 60000;
+      const isNearKickoff = minutesToKickoff <= 30 && minutesToKickoff >= -180;
+
+      cacheDuration = isNearKickoff ? CACHE_DURATION_NEAR_KICKOFF : CACHE_DURATION;
+    }
+  }
 
   const isCacheValid = cacheTimestamp.matches &&
     (Date.now() - cacheTimestamp.matches < cacheDuration);
 
   if (isCacheValid && matchesCache) {
-    console.log('Serving matches from cache');
+    console.log(`Serving matches from cache (${cacheDuration/1000}s TTL)`);
     return res.json(matchesCache);
   }
 
@@ -329,7 +445,7 @@ app.get('/matches', async (req, res) => {
         displayClock: competition.status.displayClock || '',
         period: competition.status.period || 0,
         competition: 'Eredivisie',
-        isLive: status === 'STATUS_IN_PROGRESS',
+        isLive: status === 'STATUS_IN_PROGRESS' || status === 'STATUS_FIRST_HALF' || status === 'STATUS_SECOND_HALF' || status === 'STATUS_HALFTIME',
         isPostponed: status === 'STATUS_POSTPONED',
         isSuspended: status === 'STATUS_SUSPENDED',
         isCanceled: status === 'STATUS_CANCELED',
