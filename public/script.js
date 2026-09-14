@@ -337,89 +337,102 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    // Renders the home/score/away row shared by every match status
+    function renderTeams(match, middle) {
+        return '<div class="match-teams">' +
+            `<span>${escapeHtml(match.homeTeam)}</span>` +
+            `<span class="match-score">${escapeHtml(middle)}</span>` +
+            `<span>${escapeHtml(match.awayTeam)}</span>` +
+            '</div>';
+    }
+
+    function renderMatchTime(match) {
+        const matchDate = new Date(match.date);
+        return isNaN(matchDate.getTime()) ? '' : formatMatchDate(matchDate);
+    }
+
+    // Returns the inner HTML of a match card plus the modifier class it needs,
+    // so callers can render it into an existing .match-card element
+    function buildMatchCard(match) {
+        const score = `${match.homeScore} - ${match.awayScore}`;
+
+        if (match.isLive) {
+            let inner = '<span class="live-indicator">LIVE</span>' + renderTeams(match, score);
+
+            if (match.displayClock) {
+                // Show "Rust" badge for halftime status
+                if (match.displayClock === 'HT' || match.status === 'STATUS_HALFTIME') {
+                    inner += '<span class="halftime-badge">RUST</span>';
+                } else {
+                    inner += `<span class="match-time">${escapeHtml(match.displayClock)}</span>`;
+                }
+            }
+
+            return { className: 'match-card live', inner: inner };
+        }
+
+        if (match.isPostponed) {
+            return {
+                className: 'match-card',
+                inner: '<span class="match-status postponed">UITGESTELD</span>' +
+                    `<span class="match-time">${escapeHtml(renderMatchTime(match))}</span>` +
+                    renderTeams(match, 'vs')
+            };
+        }
+
+        if (match.isSuspended) {
+            return {
+                className: 'match-card',
+                inner: '<span class="match-status suspended">ONDERBROKEN</span>' +
+                    renderTeams(match, score)
+            };
+        }
+
+        if (match.isCanceled) {
+            return {
+                className: 'match-card',
+                inner: '<span class="match-status canceled">GEANNULEERD</span>' +
+                    renderTeams(match, 'vs')
+            };
+        }
+
+        if (match.isCompleted) {
+            // Completed match (showing because no upcoming matches)
+            return {
+                className: 'match-card',
+                inner: '<span class="match-status finished">LAATSTE WEDSTRIJD</span>' +
+                    renderTeams(match, score) +
+                    `<span class="match-time past">${escapeHtml(renderMatchTime(match))}</span>`
+            };
+        }
+
+        // Scheduled match
+        return {
+            className: 'match-card',
+            inner: `<span class="match-time">${escapeHtml(renderMatchTime(match))}</span>` +
+                renderTeams(match, 'vs')
+        };
+    }
+
     function displayMatch(match) {
         if (!match) {
             displayMatchesError('Geen wedstrijden gepland');
             return;
         }
 
-        let html = '<div class="match-card';
+        const card = buildMatchCard(match);
 
-        // Handle different match statuses
-        if (match.isLive) {
-            html += ' live">';
-            html += '<span class="live-indicator">LIVE</span>';
-            html += '<div class="match-teams">';
-            html += `<span>${match.homeTeam}</span>`;
-            html += `<span class="match-score">${match.homeScore} - ${match.awayScore}</span>`;
-            html += `<span>${match.awayTeam}</span>`;
-            html += '</div>';
-            if (match.displayClock) {
-                // Replace HT with Dutch "Rust" for halftime
-                const clockText = match.displayClock === 'HT' ? 'Rust' : match.displayClock;
-                html += `<span class="match-time">${clockText}</span>`;
-            }
-        } else if (match.isPostponed) {
-            const matchDate = new Date(match.date);
-            const formattedDate = formatMatchDate(matchDate);
-            html += '">';
-            html += '<span class="match-status postponed">UITGESTELD</span>';
-            html += `<span class="match-time">${formattedDate}</span>`;
-            html += '<div class="match-teams">';
-            html += `<span>${match.homeTeam}</span>`;
-            html += `<span class="match-score">vs</span>`;
-            html += `<span>${match.awayTeam}</span>`;
-            html += '</div>';
-        } else if (match.isSuspended) {
-            html += '">';
-            html += '<span class="match-status suspended">ONDERBROKEN</span>';
-            html += '<div class="match-teams">';
-            html += `<span>${match.homeTeam}</span>`;
-            html += `<span class="match-score">${match.homeScore} - ${match.awayScore}</span>`;
-            html += `<span>${match.awayTeam}</span>`;
-            html += '</div>';
-        } else if (match.isCanceled) {
-            html += '">';
-            html += '<span class="match-status canceled">GEANNULEERD</span>';
-            html += '<div class="match-teams">';
-            html += `<span>${match.homeTeam}</span>`;
-            html += `<span class="match-score">vs</span>`;
-            html += `<span>${match.awayTeam}</span>`;
-            html += '</div>';
-        } else if (match.isCompleted) {
-            // Completed match (showing because no upcoming matches)
-            const matchDate = new Date(match.date);
-            const formattedDate = formatMatchDate(matchDate);
-            html += '">';
-            html += '<span class="match-status" style="background-color: rgba(100, 100, 100, 0.3); border: 1px solid rgba(100, 100, 100, 0.6);">LAATSTE WEDSTRIJD</span>';
-            html += '<div class="match-teams">';
-            html += `<span>${match.homeTeam}</span>`;
-            html += `<span class="match-score">${match.homeScore} - ${match.awayScore}</span>`;
-            html += `<span>${match.awayTeam}</span>`;
-            html += '</div>';
-            html += `<span class="match-time" style="opacity: 0.7;">${formattedDate}</span>`;
-        } else {
-            // Scheduled match
-            const matchDate = new Date(match.date);
-            const formattedDate = formatMatchDate(matchDate);
-            html += '">';
-            html += `<span class="match-time">${formattedDate}</span>`;
-            html += '<div class="match-teams">';
-            html += `<span>${match.homeTeam}</span>`;
-            html += `<span class="match-score">vs</span>`;
-            html += `<span>${match.awayTeam}</span>`;
-            html += '</div>';
-        }
-
-        html += '</div>';
-
-        // Update both original and duplicate elements
-        document.getElementById('upcoming-match').innerHTML = html;
-        document.getElementById('upcoming-match-duplicate').innerHTML = html;
-        document.getElementById('recent-results').innerHTML = '';
-
-        // Ensure seamless scrolling by duplicating content multiple times if needed
-        ensureTickerContinuity();
+        // Update every copy of the ticker group so both halves stay identical
+        document.querySelectorAll('[data-match-card]').forEach(el => {
+            el.className = card.className;
+            el.innerHTML = card.inner;
+        });
     }
 
     function formatMatchDate(date) {
@@ -430,29 +443,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${day} ${month}, ${time}`;
     }
 
-    function getCountdown(matchDate) {
-        const now = new Date();
-        const diff = matchDate - now;
-
-        if (diff < 0) return '';
-
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-        if (days > 0) {
-            return `Over ${days} dag${days > 1 ? 'en' : ''}`;
-        } else if (hours > 0) {
-            return `Over ${hours} uur`;
-        } else {
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            return `Over ${minutes} minuten`;
-        }
-    }
-
     function displayMatchesError(message) {
-        document.getElementById('upcoming-match').innerHTML =
-            `<div class="error-message">${message}</div>`;
-        document.getElementById('recent-results').innerHTML = '';
+        document.querySelectorAll('[data-match-card]').forEach(el => {
+            el.className = 'match-card';
+            el.innerHTML = `<div class="error-message">${escapeHtml(message)}</div>`;
+        });
     }
 
     function fetchStandings() {
@@ -486,81 +481,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
         standings.forEach(team => {
             html += `<tr class="${team.isFeyenoord ? 'feyenoord' : ''}">`;
-            html += `<td class="position">${team.position}</td>`;
-            html += `<td class="team-name">${team.team}</td>`;
-            html += `<td class="points">${team.points}</td>`;
+            html += `<td class="position">${escapeHtml(team.position)}</td>`;
+            html += `<td class="team-name">${escapeHtml(team.team)}</td>`;
+            html += `<td class="points">${escapeHtml(team.points)}</td>`;
             html += '</tr>';
         });
 
         html += '</tbody></table>';
-        document.getElementById('standings-table').innerHTML = html;
-        document.getElementById('standings-table-duplicate').innerHTML = html;
 
-        // Ensure seamless scrolling by duplicating content multiple times if needed
-        ensureTickerContinuity();
-    }
-
-    let tickerInitialized = false;
-
-    function ensureTickerContinuity() {
-        // Only run once and wait longer for DOM to fully update
-        if (tickerInitialized) return;
-
-        setTimeout(() => {
-            const ticker = document.getElementById('ticker-container');
-            const sidebar = document.querySelector('.sidebar');
-            const matchInfo = document.getElementById('match-info');
-            const standings = document.getElementById('standings');
-
-            if (!ticker || !sidebar || !matchInfo || !standings) return;
-
-            // Check if data is actually loaded (not showing loading messages)
-            const isMatchLoaded = !matchInfo.innerHTML.includes('laden');
-            const isStandingsLoaded = !standings.innerHTML.includes('laden');
-
-            if (!isMatchLoaded || !isStandingsLoaded) return;
-
-            // Mark as initialized
-            tickerInitialized = true;
-
-            // Remove any existing extra clones first
-            const existingClones = ticker.querySelectorAll('.match-info:not(#match-info):not(#match-info-duplicate), .standings:not(#standings):not(#standings-duplicate)');
-            existingClones.forEach(clone => clone.remove());
-
-            // Get the width of the ticker content (only original + first duplicate)
-            const matchInfoDup = document.getElementById('match-info-duplicate');
-            const standingsDup = document.getElementById('standings-duplicate');
-
-            if (!matchInfoDup || !standingsDup) return;
-
-            const tickerWidth = ticker.scrollWidth / 2;
-            const sidebarWidth = sidebar.offsetWidth;
-
-            // If ticker content is less than 3x the sidebar width, we need more duplicates
-            if (tickerWidth < sidebarWidth * 3) {
-                // Add 2 more sets of duplicates to ensure continuous scrolling
-                const clone1Match = matchInfo.cloneNode(true);
-                const clone1Standings = standings.cloneNode(true);
-                const clone2Match = matchInfo.cloneNode(true);
-                const clone2Standings = standings.cloneNode(true);
-
-                // Remove IDs from clones to avoid conflicts
-                clone1Match.removeAttribute('id');
-                clone1Standings.removeAttribute('id');
-                clone2Match.removeAttribute('id');
-                clone2Standings.removeAttribute('id');
-
-                // Append clones
-                ticker.appendChild(clone1Match);
-                ticker.appendChild(clone1Standings);
-                ticker.appendChild(clone2Match);
-                ticker.appendChild(clone2Standings);
-            }
-        }, 500);
+        // Update every copy of the ticker group so both halves stay identical
+        document.querySelectorAll('[data-standings-table]').forEach(el => {
+            el.innerHTML = html;
+        });
     }
 
     function displayStandingsError(message) {
-        document.getElementById('standings-table').innerHTML =
-            `<div class="error-message">${message}</div>`;
+        document.querySelectorAll('[data-standings-table]').forEach(el => {
+            el.innerHTML = `<div class="error-message">${escapeHtml(message)}</div>`;
+        });
     }
 });

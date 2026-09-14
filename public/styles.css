@@ -198,12 +198,25 @@ p {
   gap: 0;
 }
 
+/* Two identical groups make up the container, so -50% loops seamlessly */
+.ticker-group {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
 @keyframes scroll {
   0% {
     transform: translateX(0);
   }
   100% {
     transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-container {
+    animation: none;
   }
 }
 
@@ -228,13 +241,22 @@ p {
 }
 
 .match-card.live {
-  background-color: rgba(255, 215, 0, 0.3);
-  animation: pulse 2s infinite;
+  background-color: #B0A072;
+  animation: pulse 1.5s infinite;
+  border: 2px solid #B0A072;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%, 100% {
+    opacity: 1;
+    background-color: #B0A072;
+    border-color: #B0A072;
+  }
+  50% {
+    opacity: 0.85;
+    background-color: #B0A072;
+    border-color: #B0A072;
+  }
 }
 
 /* Live Indicator */
@@ -246,20 +268,21 @@ p {
   padding: 4px 8px;
   border-radius: 4px;
   margin-right: 8px;
-  animation: livePulse 2s infinite;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-@keyframes livePulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.05);
-  }
+/* Halftime Badge */
+.halftime-badge {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 1.6vh;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
 }
 
 /* Match Status Badges */
@@ -290,6 +313,11 @@ p {
   border: 1px solid rgba(150, 150, 150, 0.6);
 }
 
+.match-status.finished {
+  background-color: rgba(100, 100, 100, 0.3);
+  border: 1px solid rgba(100, 100, 100, 0.6);
+}
+
 .match-teams {
   display: flex;
   align-items: center;
@@ -311,12 +339,8 @@ p {
   font-weight: 500;
 }
 
-.countdown {
-  display: none;
-}
-
-.recent-results {
-  display: none;
+.match-time.past {
+  opacity: 0.7;
 }
 
 /* Standings Ticker Styles */
