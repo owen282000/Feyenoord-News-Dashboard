@@ -9,6 +9,21 @@ document.addEventListener('DOMContentLoaded', function() {
     function setEventListeners() {
         window.addEventListener('load', adjustArticleLayout);
         window.addEventListener('resize', adjustArticleLayout);
+
+        // Timers get throttled while the page is hidden, so refresh on return
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) refreshLiveData();
+        });
+
+        // Catch up immediately once the network is back
+        window.addEventListener('online', refreshLiveData);
+    }
+
+    function refreshLiveData() {
+        updateDateTime();
+        fetchMatches();
+        fetchStandings();
+        updateWeather('Rotterdam');
     }
 
     function fetchData() {
@@ -17,9 +32,10 @@ document.addEventListener('DOMContentLoaded', function() {
         updateWeather('Rotterdam');
         fetchMatches();
         fetchStandings();
-        setInterval(updateDateTime, 60000); // Update the date and time every minute
-        setInterval(fetchMatches, 60000); // Update matches every minute
+        setInterval(updateDateTime, 30000); // Update the clock every 30 seconds
+        setInterval(fetchMatches, 30000); // Update matches every 30 seconds (faster for live matches)
         setInterval(fetchStandings, 300000); // Update standings every 5 minutes
+        setInterval(() => updateWeather('Rotterdam'), 600000); // Update weather every 10 minutes
     }
 
     function adjustArticleLayout() {
@@ -112,9 +128,51 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => warning.remove(), 5000);
     }
 
+    function getItemText(item, selector) {
+        const element = item.querySelector(selector);
+        return element ? element.textContent.trim() : '';
+    }
+
+    function getItemImage(item) {
+        const enclosure = item.querySelector("enclosure");
+        return enclosure ? enclosure.getAttribute("url") : '';
+    }
+
+    function getItemDate(item) {
+        const raw = getItemText(item, "pubDate");
+        if (!raw) return null;
+        const date = new Date(raw);
+        return isNaN(date.getTime()) ? null : date;
+    }
+
+    // An item is only usable if we can show a title and fetch its content
+    function isUsableItem(item) {
+        return getItemText(item, "title") !== '' && getItemText(item, "link") !== '';
+    }
+
     function processRSSFeed(data) {
-        const allItems = Array.from(data.querySelectorAll("item"));
-        const items = allItems.filter(isItemFromLastWeek);
+        const allItems = Array.from(data.querySelectorAll("item")).filter(isUsableItem);
+        let items = allItems.filter(isItemFromLastTwoDays);
+
+        // Nothing recent enough: fall back to the newest items we do have,
+        // so the kiosk never ends up with an empty screen and a reload loop
+        if (items.length === 0 && allItems.length > 0) {
+            console.warn('No items from the last 2 days, falling back to most recent items');
+            items = allItems
+                .slice()
+                .sort((a, b) => {
+                    const dateA = getItemDate(a);
+                    const dateB = getItemDate(b);
+                    return (dateB ? dateB.getTime() : 0) - (dateA ? dateA.getTime() : 0);
+                })
+                .slice(0, 10);
+        }
+
+        if (items.length === 0) {
+            displayNewsError('Geen nieuwsberichten beschikbaar');
+            return;
+        }
+
         let currentItemIndex = 0;
 
         // Immediately display the first item
@@ -141,21 +199,27 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!item) return;
 
         // Preload image
-        const imageUrl = item.querySelector("enclosure").getAttribute("url");
-        const img = new Image();
-        img.src = imageUrl;
+        const imageUrl = getItemImage(item);
+        if (imageUrl) {
+            const img = new Image();
+            img.src = imageUrl;
+        }
 
         // Preload article content
-        const link = item.querySelector("link").textContent;
-        fetch(`/get-article-content?url=${encodeURIComponent(link)}`)
-            .catch(err => console.error('Error preloading article content:', err));
+        const link = getItemText(item, "link");
+        if (link) {
+            fetch(`/get-article-content?url=${encodeURIComponent(link)}`)
+                .catch(err => console.error('Error preloading article content:', err));
+        }
     }
 
-    function isItemFromLastWeek(item) {
-        const pubDate = new Date(item.querySelector("pubDate").textContent);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 2); // Use news items from 2 days max
-        return pubDate > weekAgo;
+    function isItemFromLastTwoDays(item) {
+        const pubDate = getItemDate(item);
+        if (!pubDate) return false;
+
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 2); // Use news items from 2 days max
+        return pubDate > cutoff;
     }
 
     function displayNextItem(items, index) {
@@ -180,23 +244,34 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updatePageContent(item) {
-        const title = item.querySelector("title").textContent;
-        const link = item.querySelector("link").textContent;
-        const imageUrl = item.querySelector("enclosure").getAttribute("url");
-        const date = new Date(item.querySelector("pubDate").textContent);
-        const dateString = formatDate(date);
+        const title = getItemText(item, "title");
+        const link = getItemText(item, "link");
+        const imageUrl = getItemImage(item);
+        const date = getItemDate(item);
 
-        document.getElementById('news-image').style.backgroundImage = `url(${imageUrl})`;
+        const newsImage = document.getElementById('news-image');
+        newsImage.style.backgroundImage = imageUrl ? `url(${imageUrl})` : 'none';
         document.getElementById('news-title').textContent = title;
-        document.getElementById('news-date-time').textContent = dateString;
+        document.getElementById('news-date-time').textContent = date ? formatDate(date) : '';
+        document.getElementById('news-description').textContent = '';
 
-        fetchArticleContent(link);
+        if (link) {
+            fetchArticleContent(link);
+        }
     }
 
     function fetchArticleContent(link) {
         fetch(`/get-article-content?url=${encodeURIComponent(link)}`)
-            .then(response => response.json())
-            .then(article => document.getElementById('news-description').innerHTML = article.content)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Article unavailable (status ${response.status})`);
+                }
+                return response.json();
+            })
+            .then(article => {
+                // Plain text from the server, rendered as text so no external markup runs
+                document.getElementById('news-description').textContent = article.text || '';
+            })
             .catch(err => console.error('Error fetching article content:', err));
     }
 
@@ -210,6 +285,9 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/weather?city=${encodeURIComponent(city)}`)
             .then(response => response.json())
             .then(data => {
+                if (!data.current) {
+                    throw new Error(data.message || 'Weather data unavailable');
+                }
                 const temperature = data.current.temp_c;
                 const conditionIcon = data.current.condition.icon;
                 const weatherHTML = `<img src="https:${conditionIcon}" alt="Weather Icon"> ${temperature}°C`;
