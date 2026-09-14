@@ -1,0 +1,19 @@
+# Development Dockerfile with hot reload
+FROM node:20
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Install app dependencies
+COPY package*.json ./
+RUN npm install
+
+# Install nodemon globally for hot reload
+RUN npm install -g nodemon
+
+# Don't copy source files - they'll be mounted as a volume
+
+EXPOSE 3000
+
+# Use nodemon to watch for changes
+CMD [ "nodemon", "--watch", ".", "--ext", "js,html,css", "server.js" ]

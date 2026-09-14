@@ -1,0 +1,18 @@
+services:
+  feyenoord-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: fnd-dev
+    ports:
+      - "3002:3000"
+    volumes:
+      # Mount the whole project dir for hot reload. Mounting individual files
+      # (./server.js:...) breaks when an editor saves atomically: the bind
+      # mount keeps pointing at the old inode and the container sees ENOENT.
+      - ./:/usr/src/app
+      # Prevent node_modules from being overwritten by the mount above
+      - /usr/src/app/node_modules
+    environment:
+      - WEATHER_API_KEY=test_key
+    restart: unless-stopped
