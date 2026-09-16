@@ -42,36 +42,45 @@ p {
   line-height: 5vh;
 }
 
-/* Footer Styles */
+/* Footer Styles
+   Credit line bottom right, above the ticker. Deliberately quiet: it should be
+   findable when you look for it, not compete with the news */
 .footer {
-  width: 100%;
-  padding: 1% 10px;
   position: fixed;
-  bottom: 8vh;
-  left: 0;
-  color: white;
-  text-align: left;
+  bottom: 8.6vh;
+  right: 3vh;
+  margin: 0;
+  color: #777;
+  text-align: right;
   z-index: 10;
-  font-size: 3vh;
-  padding-left: 3vh;
-  padding-bottom: 1vh;
-  opacity: 0.3;
+  font-size: 2.3vh;
+  line-height: 1;
 }
 
-/* Content Wrapper */
+.footer p {
+  margin: 0;
+  font-size: inherit;
+  line-height: 1;
+}
+
+/* Content Wrapper
+   Vertically centred and only as tall as its content, so the card never
+   leaves a gap between the text and the progress bar below it */
 .content-wrapper {
   display: flex;
   flex-direction: column;
   position: absolute;
   right: 15%;
-  top: 10%;
+  top: 50%;
+  transform: translateY(-50%);
   width: 30%;
-  max-height: 80%;
+  /* Leaves room for the ticker and the credit line underneath */
+  max-height: 74vh;
   padding: 20px;
   box-sizing: border-box;
   background-color: rgba(255, 255, 255, 0.9);
   border-radius: 10px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 /* Fade transitions for news content */
@@ -101,16 +110,52 @@ p {
   }
 }
 
-/* News Image */
+/* News Image
+   In normal flow so the wrapper can size to its content; it used to be
+   absolute, which is why script.js had to push the article down by hand */
 .news-image {
   width: 100%;
   background-size: cover;
+  background-position: center;
   aspect-ratio: 16 / 9;
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: auto;
-  z-index: 2;
+  flex: none;
+  /* Match the rounding of .content-wrapper it sits inside */
+  border-radius: 6px;
+}
+
+/* Article Rotation Progress
+   Sits right below the text rather than pinned to the bottom of the card */
+.article-progress {
+  flex: none;
+  margin-top: 16px;
+  height: 3px;
+  background-color: rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.article-progress-bar {
+  width: 0;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+}
+
+/* Duration is set from script.js so it always matches the rotation interval */
+.article-progress-bar.running {
+  animation: articleProgress linear forwards;
+}
+
+@keyframes articleProgress {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-progress-bar.running {
+    animation: none;
+    width: 100%;
+  }
 }
 
 /* Article Styles */
@@ -121,9 +166,9 @@ p {
 
 .news-article {
   padding-top: 20px;
-  padding-bottom: 20px;
-  position: relative;
-  z-index: 1;
+  /* Shrinks and clips instead of stretching the card past the viewport */
+  min-height: 0;
+  overflow: hidden;
 }
 
 .news-article a {
@@ -163,12 +208,72 @@ p {
   padding-top: 4vh;
 }
 
-#weather-icon {
-  width: 5vh;
-  height: 5vh;
-  background-size: contain;
-  background-repeat: no-repeat;
-  margin-right: 8px;
+/* Shown until the first reading arrives, or when weather is unavailable */
+.weather-placeholder {
+  opacity: 0.35;
+}
+
+/* Next Match
+   Plain text on the red half, in the same visual language as the clock:
+   white, no panel, no accent colour. Kept to two lines so it stays clear of
+   the crest, whose bottom edge sits at about 19vh in background.png */
+.next-match {
+  position: fixed;
+  left: 3vh;
+  bottom: 10vh;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4vh;
+  color: white;
+  max-width: 42%;
+}
+
+.next-match-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 1vh;
+  opacity: 0.75;
+}
+
+.next-match-label {
+  font-size: 1.6vh;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.next-match-teams {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 1vh;
+  font-size: 3.2vh;
+  font-weight: bold;
+  line-height: 1.15;
+}
+
+.next-match-separator {
+  font-size: 2vh;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.next-match-date {
+  font-size: 1.8vh;
+  font-weight: 500;
+}
+
+/* Live match: the score carries the emphasis, the label just stops being faint */
+.next-match.live .next-match-meta {
+  opacity: 1;
+}
+
+.next-match.live .next-match-separator {
+  font-size: 3.2vh;
+  font-weight: bold;
+  opacity: 1;
 }
 
 /* Bottom Ticker Bar */

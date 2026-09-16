@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Article rotation timing. The progress bar is driven by these, so keep
+    // FADE_DURATION in sync with the fadeOut animation in styles.css
+    const ROTATION_INTERVAL = 30000;
+    const PRELOAD_LEAD_TIME = 3000;
+    const FADE_DURATION = 1000;
+
     initializePage();
 
     function initializePage() {
@@ -7,9 +13,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function setEventListeners() {
-        window.addEventListener('load', adjustArticleLayout);
-        window.addEventListener('resize', adjustArticleLayout);
-
         // Timers get throttled while the page is hidden, so refresh on return
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) refreshLiveData();
@@ -36,29 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
         setInterval(fetchMatches, 30000); // Update matches every 30 seconds (faster for live matches)
         setInterval(fetchStandings, 300000); // Update standings every 5 minutes
         setInterval(() => updateWeather('Rotterdam'), 600000); // Update weather every 10 minutes
-    }
-
-    function adjustArticleLayout() {
-        adjustArticleHeight();
-        adjustArticlePosition();
-    }
-
-    function adjustArticleHeight() {
-        const headerHeight = document.querySelector('.header').offsetHeight;
-        const imageHeight = document.querySelector('.news-image').offsetHeight;
-        const windowHeight = window.innerHeight;
-        const articleHeight = windowHeight - headerHeight - imageHeight;
-        const newsArticle = document.querySelector('.news-article');
-
-        newsArticle.style.maxHeight = `${articleHeight}px`;
-        newsArticle.style.overflow = 'hidden';
-    }
-
-    function adjustArticlePosition() {
-        const imageHeight = document.querySelector('.news-image').clientHeight;
-        const newsArticle = document.querySelector('.news-article');
-
-        newsArticle.style.marginTop = `${imageHeight}px`;
     }
 
     function fetchRSSFeed() {
@@ -177,6 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Immediately display the first item
         displayNextItem(items, currentItemIndex++);
+        startArticleProgress(currentItemIndex < items.length);
 
         // Continue displaying items at intervals with preloading
         const displayInterval = setInterval(() => {
@@ -189,10 +170,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 const hasMoreItems = displayNextItem(items, currentItemIndex++);
                 if (!hasMoreItems) {
                     clearInterval(displayInterval);
+                    startArticleProgress(false);
                     setTimeout(() => window.location.reload(), 10000);
+                } else {
+                    startArticleProgress(currentItemIndex < items.length);
                 }
-            }, 3000); // Wait 3 seconds after preload before displaying
-        }, 30000);
+            }, PRELOAD_LEAD_TIME); // Wait for the preload before displaying
+        }, ROTATION_INTERVAL);
+    }
+
+    // Runs from the moment an article becomes visible until the next one does
+    function startArticleProgress(hasMoreItems) {
+        const container = document.getElementById('article-progress');
+        const bar = document.getElementById('article-progress-bar');
+        if (!container || !bar) return;
+
+        // Nothing follows this article, so a progress bar would promise a
+        // transition that never comes
+        if (!hasMoreItems) {
+            container.hidden = true;
+            bar.classList.remove('running');
+            return;
+        }
+
+        container.hidden = false;
+
+        // Restart the animation: removing the class alone is not enough
+        // because the browser coalesces both style changes into one frame
+        bar.classList.remove('running');
+        void bar.offsetWidth;
+        bar.style.animationDuration = `${ROTATION_INTERVAL}ms`;
+        bar.style.animationDelay = `${FADE_DURATION}ms`;
+        bar.classList.add('running');
     }
 
     function preloadNextItem(item) {
@@ -236,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updatePageContent(item);
                 contentWrapper.classList.remove('fade-out');
                 contentWrapper.classList.add('fade-in');
-            }, 1000); // Match the fadeOut animation duration
+            }, FADE_DURATION); // Match the fadeOut animation duration
 
             return true;
         }
@@ -304,21 +313,53 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Try to load from cache
                 const cachedWeather = localStorage.getItem('feyenoord_weather_cache');
                 if (cachedWeather) {
-                    document.getElementById('weather').innerHTML = cachedWeather + ' <span style="opacity: 0.5;">⚠️</span>';
+                    document.getElementById('weather').innerHTML = cachedWeather;
                 } else {
-                    document.getElementById('weather').innerHTML = '<span style="opacity: 0.5;">Weer niet beschikbaar</span>';
+                    // Keep the slot quiet rather than shouting an error at shoppers
+                    document.getElementById('weather').innerHTML = '<span class="weather-placeholder">-°C</span>';
                 }
             });
     }
 
+    function isSameDay(a, b) {
+        return a.getFullYear() === b.getFullYear() &&
+            a.getMonth() === b.getMonth() &&
+            a.getDate() === b.getDate();
+    }
+
+    function capitalize(text) {
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    // Reads more naturally on a display than 14-09-2026: the year is never
+    // what a viewer wants to know, the day is
     function formatDate(date) {
-        return date.toLocaleDateString('nl-NL', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        const time = date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const now = new Date();
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (isSameDay(date, now)) {
+            return `Vandaag ${time}`;
+        }
+
+        if (isSameDay(date, yesterday)) {
+            return `Gisteren ${time}`;
+        }
+
+        // Within the past week a weekday is clearer than a date
+        const daysAgo = (now - date) / (1000 * 60 * 60 * 24);
+        if (daysAgo > 0 && daysAgo < 7) {
+            return `${capitalize(date.toLocaleDateString('nl-NL', { weekday: 'long' }))} ${time}`;
+        }
+
+        // Keep the year for anything outside the current one, so an old
+        // article is never mistaken for a recent one
+        const options = { day: 'numeric', month: 'long' };
+        if (date.getFullYear() !== now.getFullYear()) {
+            options.year = 'numeric';
+        }
+        return `${date.toLocaleDateString('nl-NL', options)}, ${time}`;
     }
 
     function fetchMatches() {
@@ -433,6 +474,67 @@ document.addEventListener('DOMContentLoaded', function() {
             el.className = card.className;
             el.innerHTML = card.inner;
         });
+
+        displayNextMatchBlock(match);
+    }
+
+    // Label and middle column depend on what stage the match is in
+    function describeMatch(match) {
+        if (match.isLive) {
+            const label = (match.displayClock === 'HT' || match.status === 'STATUS_HALFTIME')
+                ? 'Rust'
+                : (match.displayClock ? `Live ${match.displayClock}` : 'Live');
+            return {
+                label: label,
+                separator: `${match.homeScore} - ${match.awayScore}`,
+                date: ''
+            };
+        }
+
+        if (match.isPostponed) {
+            return { label: 'Uitgesteld', separator: 'vs', date: renderMatchTime(match) };
+        }
+
+        if (match.isSuspended) {
+            return {
+                label: 'Onderbroken',
+                separator: `${match.homeScore} - ${match.awayScore}`,
+                date: ''
+            };
+        }
+
+        if (match.isCanceled) {
+            return { label: 'Afgelast', separator: 'vs', date: renderMatchTime(match) };
+        }
+
+        if (match.isCompleted) {
+            return {
+                label: 'Laatste wedstrijd',
+                separator: `${match.homeScore} - ${match.awayScore}`,
+                date: renderMatchTime(match)
+            };
+        }
+
+        return { label: 'Volgende wedstrijd', separator: 'vs', date: renderMatchTime(match) };
+    }
+
+    function displayNextMatchBlock(match) {
+        const block = document.getElementById('next-match');
+        if (!block) return;
+
+        const info = describeMatch(match);
+
+        document.getElementById('next-match-label').textContent = info.label;
+        document.getElementById('next-match-home').textContent = match.homeTeam || '';
+        document.getElementById('next-match-separator').textContent = info.separator;
+        document.getElementById('next-match-away').textContent = match.awayTeam || '';
+
+        const dateEl = document.getElementById('next-match-date');
+        dateEl.textContent = info.date;
+        dateEl.hidden = info.date === '';
+
+        block.classList.toggle('live', Boolean(match.isLive));
+        block.hidden = false;
     }
 
     function formatMatchDate(date) {
@@ -448,6 +550,13 @@ document.addEventListener('DOMContentLoaded', function() {
             el.className = 'match-card';
             el.innerHTML = `<div class="error-message">${escapeHtml(message)}</div>`;
         });
+
+        // Hide rather than keep showing a fixture we can no longer confirm
+        const block = document.getElementById('next-match');
+        if (block) {
+            block.hidden = true;
+            block.classList.remove('live');
+        }
     }
 
     function fetchStandings() {

@@ -11,10 +11,23 @@
     <header class="header">
         <div id="datetime"></div>
         <div id="weather">
-            <span id="weather-icon"></span>
-            <span>Loading weather...</span>
+            <span class="weather-placeholder">-°C</span>
         </div>
     </header>
+
+    <!-- Next match, kept in a fixed spot because it is the most asked
+         question in the shop and should not scroll past in the ticker -->
+    <section class="next-match" id="next-match" hidden>
+        <div class="next-match-meta">
+            <span class="next-match-label" id="next-match-label">Volgende wedstrijd</span>
+            <span class="next-match-date" id="next-match-date"></span>
+        </div>
+        <div class="next-match-teams">
+            <span id="next-match-home"></span>
+            <span class="next-match-separator" id="next-match-separator"></span>
+            <span id="next-match-away"></span>
+        </div>
+    </section>
 
     <!-- Main Content -->
     <main class="content-wrapper">
@@ -32,6 +45,10 @@
                 <!-- News Description will be inserted here -->
             </p>
         </article>
+        <!-- Fills up over one rotation so viewers can see another item is coming -->
+        <div class="article-progress" id="article-progress" hidden>
+            <div class="article-progress-bar" id="article-progress-bar"></div>
+        </div>
     </main>
 
     <!-- Bottom Ticker Bar -->
