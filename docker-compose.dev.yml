@@ -15,4 +15,29 @@ services:
       - /usr/src/app/node_modules
     environment:
       - WEATHER_API_KEY=test_key
+      # Talk to the simulator instead of the real ESPN API. Comment this out
+      # (or run `docker compose -f docker-compose.dev.yml up dashboard-only`)
+      # to use live ESPN data.
+      - ESPN_BASE_URL=http://espn-simulator:3099
+    depends_on:
+      - espn-simulator
+    restart: unless-stopped
+
+  # Fake ESPN API so match-day states can be tested on any day of the week.
+  # Switch scenarios with ./dev/sim.sh (see dev/README.md).
+  espn-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: fnd-sim
+    command: ["node", "dev/espn-simulator.js"]
+    ports:
+      - "3099:3099"
+    volumes:
+      - ./:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      # Lets the simulator drop the dashboard's cache when the scenario changes
+      - DASHBOARD_URL=http://feyenoord-dashboard:3000
+      - SIM_SCENARIO=scheduled-far
     restart: unless-stopped

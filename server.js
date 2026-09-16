@@ -9,9 +9,17 @@ const app = express();
 // Port configuration
 const PORT = process.env.PORT || 3000;
 
-// ESPN API configuration (no API key required)
-const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/ned.1';
+// ESPN API configuration (no API key required).
+// ESPN_BASE_URL points at the local simulator during development; unset it
+// and everything talks to the real ESPN API.
+const ESPN_HOST = process.env.ESPN_BASE_URL || 'https://site.api.espn.com';
+const ESPN_API_BASE = `${ESPN_HOST}/apis/site/v2/sports/soccer/ned.1`;
+const ESPN_STANDINGS_URL = `${ESPN_HOST}/apis/v2/sports/soccer/ned.1/standings`;
 const FEYENOORD_ESPN_ID = 142; // Feyenoord Rotterdam ESPN team ID
+
+if (process.env.ESPN_BASE_URL) {
+  console.warn(`ESPN requests are pointed at ${ESPN_HOST} (simulator), not the real API`);
+}
 
 // Only these hosts may be fetched by /get-article-content
 const ALLOWED_ARTICLE_HOSTS = new Set(['www.fr12.nl', 'fr12.nl']);
@@ -45,6 +53,19 @@ const ARTICLE_CACHE_MAX_ENTRIES = 50;
 // Middleware
 app.use(cors()); // Enable CORS
 app.use(express.static('public')); // Serve static files
+
+// Development only: lets the simulator drop the caches when it switches
+// scenario, so a new match state shows up immediately instead of after the TTL
+if (process.env.ESPN_BASE_URL) {
+  app.post('/_dev/flush-cache', (req, res) => {
+    standingsCache = null;
+    matchesCache = null;
+    cacheTimestamp.standings = null;
+    cacheTimestamp.matches = null;
+    console.log('Caches flushed by simulator');
+    res.json({ flushed: true });
+  });
+}
 
 // Route to fetch RSS feed with caching and fallback
 app.get('/rss', async (req, res) => {
@@ -223,7 +244,7 @@ app.get('/standings', async (req, res) => {
 
   try {
     // Fetch current Eredivisie standings from ESPN
-    const response = await fetch('https://site.api.espn.com/apis/v2/sports/soccer/ned.1/standings');
+    const response = await fetch(ESPN_STANDINGS_URL);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

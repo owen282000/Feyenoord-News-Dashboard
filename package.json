@@ -4,7 +4,9 @@
   "description": "A Feyenoord News Dashboard that aggregates the latest club news and weather updates using Node.js. It fetches RSS feeds, processes article content, and presents real-time updates for fans, enhancing their experience with up-to-date information and insights.",
   "main": "server.js",
   "scripts": {
-      "start": "node server.js"
+      "start": "node server.js",
+      "sim": "node dev/espn-simulator.js",
+      "dev:sim": "ESPN_BASE_URL=http://localhost:3099 node server.js"
   },
   "engines": {
       "node": ">=18"
